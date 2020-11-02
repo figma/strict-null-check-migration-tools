@@ -1,0 +1,376 @@
+<html>
+  <head>
+    <script src="https://unpkg.com/react@16/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.21.1/babel.min.js"></script>
+    <script type="text/javascript" src="./data.js"></script>
+
+<script type="text/babel">
+
+function isTest(node) {
+  return node.files.length === 1 &&
+    (node.files[0].endsWith('_test.ts') || node.files[0].endsWith('_test.tsx') || node.files[0].startsWith('figma_app/interaction_tests/'))
+}
+
+class Tooltip extends React.Component {
+  render() {
+    return (
+      <div style={{
+        position: 'absolute',
+        left: this.props.x,
+        top: this.props.y,
+        padding: '5px',
+        background: 'black',
+        opacity: 0.8,
+        color: 'white',
+        fontSize: 10,
+        fontFamily: 'monospace'
+      }}>
+        {this.props.node.errorCount != null ? (<React.Fragment>{this.props.node.errorCount} errors<br/></React.Fragment>) : null}
+        {this.props.node.files.map(file => <React.Fragment key={file}>
+          {file}
+          <br/>
+        </React.Fragment>)}
+      </div>
+    )
+  }
+}
+
+class DependencyGraph extends React.Component {
+  constructor(props) {
+    super(props)
+
+    this.state = {
+      hovered: null,
+      hideTests: false,
+      useDependentOrdering: false,
+      searchRegex: null,
+    }
+    this.maxOffsetX = 0
+    this.maxOffsetY = 0
+
+    this.computePositions(props, this.state)
+  }
+
+  componentWillUpdate(nextProps, nextState) {
+    if (nextState.hideTests !== this.state.hideTests ||
+        nextState.useDependentOrdering !== this.state.useDependentOrdering) {
+      this.computePositions(nextProps, nextState)
+    }
+  }
+
+  computePositions(props, state) {
+    // Group nodes into rows by their dependency depth
+    let nodesByRow = []
+
+    if (state.useDependentOrdering) {
+      for (const node of this.props.nodes) {
+        if (!state.hideTests || !isTest(node)) {
+          if (!nodesByRow[node.dependentDepth]) {
+            nodesByRow[node.dependentDepth] = []
+          }
+          nodesByRow[node.dependentDepth].push(node)
+        }
+      }
+      nodesByRow.reverse()
+    } else {
+      for (const node of this.props.nodes) {
+        if (!state.hideTests || !isTest(node)) {
+          if (!nodesByRow[node.dependencyDepth]) {
+            nodesByRow[node.dependencyDepth] = []
+          }
+          nodesByRow[node.dependencyDepth].push(node)
+        }
+      }
+    }
+
+    let maxNodesInRow = Math.max(...nodesByRow.map(nodes => nodes.length))
+    let avgNodesInRow = nodesByRow.map(nodes => nodes.length).reduce((acc, val) => acc + val) / nodesByRow.length
+
+    // Sort order: checked files | eligible files | blocked files
+    // Then sort by file path within those categories
+    for (const row of nodesByRow) {
+      row.sort((a, b) => {
+        if (a.checked && !b.checked) { return -1 }
+        if (!a.checked && b.checked) { return 1 }
+        if (a.eligible && !b.eligible) { return -1 }
+        if (!a.eligible && b.eligible) { return 1 }
+        return a.files[0] < b.files[0]
+      })
+    }
+
+    // Split row into subrows because some rows are way too long relative to the rest
+    let maxInSubrow = Math.ceil(avgNodesInRow * 4)
+    let nodesByRowAndSubrow = []
+    for (const row of nodesByRow) {
+      let numSubrows = Math.ceil(row.length / maxInSubrow)
+      let subrows = []
+      let currentSubrow = []
+      for (const node of row) {
+        if (currentSubrow.length === Math.ceil(row.length / numSubrows)) {
+          subrows.push(currentSubrow)
+          currentSubrow = []
+        }
+        currentSubrow.push(node)
+      }
+      subrows.push(currentSubrow)
+      nodesByRowAndSubrow.push(subrows)
+    }
+
+    // Precompute the position of nodes
+    this.nodeToPosition = new Map()
+    let offsetY = 15
+    let offsetsX = []
+
+    for (const row of nodesByRowAndSubrow) {
+      for (const subrow of row) {
+        let offsetX = 10
+        let maxRadius = 0
+        for (const node of subrow) {
+          maxRadius = Math.max(maxRadius, this.nodeRadius(node))
+          offsetX += this.nodeRadius(node) * 1.25
+          this.nodeToPosition.set(node, { x: offsetX, y: offsetY})
+          offsetX += this.nodeRadius(node) * 1.25
+        }
+        offsetsX.push(offsetX)
+        this.maxOffsetX = Math.max(offsetX, this.maxOffsetX)
+
+        offsetY += maxRadius * 2.5
+      }
+      offsetY += 20
+    }
+
+    this.maxOffsetY = Math.max(this.maxOffsetY, offsetY)
+
+    // Make all rows partially centered (fully centered looks weird)
+    let i = 0
+    for (const row of nodesByRowAndSubrow) {
+      for (const subrow of row) {
+        let paddingForCentering = (this.maxOffsetX - offsetsX[i]) / 4
+        for (const node of subrow) {
+          this.nodeToPosition.get(node).x += paddingForCentering
+        }
+        i++
+      }
+    }
+  }
+
+  includeNode = (node) => !this.state.hideTests || !isTest(node)
+
+  searchMatches(node) {
+    if (!this.state.searchRegex) {
+      return false
+    }
+
+    for (const file of node.files) {
+      if (file.match(this.state.searchRegex)) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  nodeRadius(node) {
+    // Make the area of nodes bigger in proportion to cycle length
+    // Take the square root because area ~= radius * radius
+    return (node.checked ? 6 : 10) + Math.sqrt(node.files.length) * 4
+  }
+
+  renderNode(node) {
+    let onMouseOver = (e) => {
+      this.setState({
+        hovered: {
+          node,
+          x: e.pageX,
+          y: e.pageY
+        },
+      })
+    }
+
+    let onMouseOut = () => {
+      this.setState({ hovered: null })
+    }
+
+    let { x, y } = this.nodeToPosition.get(node)
+
+    let color
+    if (node.checked) {
+      color = 'springgreen'
+    } else if (node.eligible) {
+      color = 'khaki'
+    } else {
+      color = 'silver'
+    }
+
+    let strokeProps = { stroke: 'black', strokeWidth: 2 }
+    if (this.searchMatches(node)) {
+      strokeProps = { stroke: 'blue', strokeWidth: 8 }
+    } else if (node.files.length > 1) {
+      // Put a thicker stroke around cycles to identify them
+      strokeProps = { stroke: 'black', strokeWidth: 6 }
+    } else if (node.errorCount != null && node.errorCount < 5) {
+      // Highlight files that are easy to strict null check
+      strokeProps = { stroke: 'darkgreen', strokeWidth: 4 }
+    }
+
+    return (
+      <circle
+        key={node.id}
+        style={{ transition: 'cx 0.5s ease-in-out, cy 0.5s ease-in-out' }}
+        fill={color}
+        opacity={!this.state.hovered || this.state.hovered.node === node ? 1.0 : 0.5}
+        {...strokeProps}
+        cx={x}
+        cy={y}
+        r={this.nodeRadius(node)}
+        onMouseOver={onMouseOver}
+        onMouseOut={onMouseOut}
+      />
+    )
+  }
+
+  renderLinesFromNodeToNodes(node, nodes, props = {}) {
+    let position = this.nodeToPosition.get(node)
+    return nodes.filter(this.includeNode).map((otherNode, i) => {
+      const dependencyPosition = this.nodeToPosition.get(otherNode)
+      return <line
+        key={node.id + '|' + otherNode.id}
+        // Don't let the lines get in the way of hovering on the nodes
+        style={{ pointerEvents: 'none' }}
+        x1={position.x}
+        y1={position.y}
+        x2={dependencyPosition.x}
+        y2={dependencyPosition.y}
+        stroke={otherNode.checked ? 'black' : 'maroon'}
+        opacity={otherNode.checked ? 0.25 : 1.0}
+        strokeWidth={6}
+        {...props}
+        strokeLinecap='round'
+      />
+    })
+  }
+
+  renderDependencyLines() {
+    if (this.state.hovered) {
+      return this.renderLinesFromNodeToNodes(
+        this.state.hovered.node,
+        this.state.hovered.node.dependencies.map(id => this.props.nodes[id]))
+    }
+  }
+
+  renderTransitiveDependencyLines() {
+    const nodeIdsToUncheckedNodes = (nodeIds) => {
+      return nodeIds
+        .map(id => this.props.nodes[id])
+        .filter(this.includeNode)
+        .filter(dependency => !dependency.checked)
+    }
+
+    const transitiveDependenciesForNode = (node) => {
+      let dependencies = nodeIdsToUncheckedNodes(node.dependencies)
+      return this.renderLinesFromNodeToNodes(node, dependencies, { strokeWidth: 3, opacity: 0.5 })
+    }
+
+    if (this.state.hovered) {
+      return nodeIdsToUncheckedNodes(this.state.hovered.node.dependencies).flatMap(transitiveDependenciesForNode)
+    }
+  }
+
+  renderDependentLines() {
+    if (this.state.hovered) {
+      return this.renderLinesFromNodeToNodes(
+        this.state.hovered.node,
+        this.state.hovered.node.dependents.map(id => this.props.nodes[id]))
+    }
+  }
+
+  renderSidebar() {
+    return (<div style={{ width: '250px', paddingRight: '40px' }}>
+      Legend
+      <br/>
+      <ul>
+        <li>
+          <svg width={15} height={15} viewBox={'-15 -15 30 30'}><circle stroke='black' fill='springgreen' strokeWidth={2} r={6}/></svg>
+          Node is already in the strict null check whitelist
+        </li>
+        <li>
+          <svg width={15} height={15} viewBox={'-15 -15 30 30'}><circle stroke='black' fill='khaki' strokeWidth={2} r={10}/></svg>
+          Node is ready to be added to the strict null check whitelist
+        </li>
+        <li>
+          <svg width={15} height={15} viewBox={'-15 -15 30 30'}><circle stroke='black' fill='grey' strokeWidth={2} r={10}/></svg>
+          Node depends on files that haven't been strict null checked
+        </li>
+        <li>
+          <svg width={15} height={15} viewBox={'-15 -15 30 30'}><circle stroke='black' fill='transparent' strokeWidth={6} r={10}/></svg>
+          Node represents multiple files in a cycle
+        </li>
+        <li>
+          <svg width={15} height={15} viewBox={'-15 -15 30 30'}><circle stroke='darkslategrey' fill='transparent' strokeWidth={3} r={10}/></svg>
+          Node has &lt;5 errors to fix in order to strict null check
+        </li>
+      </ul>
+      <label>
+        <input
+          type='checkbox'
+          checked={this.state.hideTests}
+          onChange={(e) => { this.setState({ hoveredNode: null, hideTests: e.target.checked }) }}
+        />
+        Hide tests
+      </label>
+      <br/>
+      <label>
+        <input
+          type='checkbox'
+          checked={this.state.useDependentOrdering}
+          onChange={(e) => { this.setState({ useDependentOrdering: e.target.checked }) }}
+        />
+        Use dependent ordering
+      </label>
+      <br/>
+      <label>
+        Search query (regex):
+        <input
+          type='text'
+          style={{ marginLeft: '8px' }}
+          onChange={(e) => {
+            let searchRegex = null
+            if (e.target.value.trim() !== '') {
+              try { searchRegex = new RegExp(e.target.value) } catch (e) {}
+            }
+            this.setState({ searchRegex })
+          }}
+        />
+      </label>
+    </div>)
+  }
+
+  render() {
+    return (<div style={{ display: 'flex' }}>
+      {this.renderSidebar()}
+      <div style={{ flexGrow: 1 }}>
+        <svg viewBox={`0 0 ${this.maxOffsetX * 1.2 + 10} ${this.maxOffsetY}`} xmlns="http://www.w3.org/2000/svg">
+          {this.props.nodes.filter(this.includeNode).map((node) => this.renderNode(node))}
+          {this.renderDependencyLines()}
+          {this.renderTransitiveDependencyLines()}
+          {this.renderDependentLines()}
+        </svg>
+        {this.state.hovered && <Tooltip {...this.state.hovered} />}
+      </div>
+    </div>)
+  }
+}
+
+ReactDOM.render(
+  <DependencyGraph nodes={window.nodes} />,
+  document.getElementById('root')
+)
+
+</script>
+
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
