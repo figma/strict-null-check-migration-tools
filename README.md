@@ -54,4 +54,4 @@ Files not part of a strongly connected components (1974)
 
 # Contributions
 
-Contributions to this repository are not accepted. Since Figma has already completed their migration, our codebase is no longer in a state where we can test these scripts, so we're unable to review patches for correctness. We except that every codebase will have its unique quirks that will require adapting the scripts anyway, even if it's just changing some file path resolution code. You're better off just forking this repo.
+Contributions to this repository are not accepted. Since Figma has already completed their migration, our codebase is no longer in a state where we can test these scripts, so we're unable to review patches for correctness. We expect that every codebase will have its unique quirks that will require adapting the scripts anyway, even if it's just changing some file path resolution code. You're better off just forking this repo.
