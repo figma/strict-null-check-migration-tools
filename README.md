@@ -4,7 +4,7 @@ These scripts were originally forked from https://github.com/mjbvz/vscode-strict
 
 # How to use
 
-These are scripts used in the incremental migration approach described in [LINK TO BLOG POST].
+These are scripts used in the incremental migration approach described in [https://www.figma.com/blog/inside-figma-a-case-study-on-strict-null-checks/].
 
 - `npm run find-candidates -- <your_project_path>/tsconfig.strictNullChecks.json` lists all the files whose dependencies have all been whitelisted. These files can be safely whitelisted too (once their strict null check errors have been fixed). It generates an output like this:
 
