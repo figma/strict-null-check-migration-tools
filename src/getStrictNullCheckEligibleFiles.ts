@@ -108,7 +108,7 @@ export async function getCheckedFiles(tsconfigPath: string, srcRoot: string): Pr
   const set = new Set<string>();
 
   await Promise.all(tsconfig.include.map(file => {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       glob(path.join(srcRoot, file), (err, files) => {
         if (err) {
           return reject(err)
@@ -125,7 +125,7 @@ export async function getCheckedFiles(tsconfigPath: string, srcRoot: string): Pr
   }));
 
   await Promise.all(tsconfig.exclude.map(file => {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       glob(path.join(srcRoot, file), (err, files) => {
         if (err) {
           return reject(err)
