@@ -2,6 +2,10 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as ts from 'typescript'
 
+export function normalizeTsconfigPath(tsconfigPath: string) {
+  return path.resolve(tsconfigPath);
+}
+
 /**
  * Given a file, return the list of files it imports as absolute paths.
  */
@@ -16,7 +20,15 @@ export function getImportsForFile(file: string, srcRoot: string) {
       console.warn(`Warning: Barrel import: ${path.relative(srcRoot, file)}`)
       file = index
     } else {
-      throw new Error(`Warning: Importing a directory without an index.ts file: ${path.relative(srcRoot, file)}`)
+      const index = path.join(file, "index.d.ts")
+
+      if (fs.existsSync(index)) {
+        // https://basarat.gitbooks.io/typescript/docs/tips/barrel.html
+        console.warn(`Warning: Barrel import: ${path.relative(srcRoot, file)}`)
+        file = index
+      } else {
+        throw new Error(`Warning: Importing a directory without an index.ts file: ${path.relative(srcRoot, file)}`)
+      }
     }
   }
 

@@ -1,4 +1,4 @@
-import * as fs from 'fs'
+import * as ts from 'typescript'
 import * as path from 'path'
 import * as glob from 'glob'
 import { ImportTracker } from './tsHelper'
@@ -103,47 +103,12 @@ interface TSConfig {
  * --strictNullChecks.
  */
 export async function getCheckedFiles(tsconfigPath: string, srcRoot: string): Promise<Set<string>> {
-  const tsconfig = JSON.parse(fs.readFileSync(tsconfigPath).toString()) as TSConfig
+  const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile)
+  const configFileContent = ts.parseJsonConfigFileContent(
+    configFile.config,
+    ts.sys,
+    path.dirname(tsconfigPath)
+  );
 
-  const set = new Set<string>();
-
-  await Promise.all(tsconfig.include.map(file => {
-    return new Promise((resolve, reject) => {
-      glob(path.join(srcRoot, file), (err, files) => {
-        if (err) {
-          return reject(err)
-        }
-
-        for (const file of files) {
-          if (considerFile(file)) {
-            set.add(file)
-          }
-        }
-        resolve()
-      })
-    });
-  }));
-
-  await Promise.all(tsconfig.exclude.map(file => {
-    return new Promise((resolve, reject) => {
-      glob(path.join(srcRoot, file), (err, files) => {
-        if (err) {
-          return reject(err)
-        }
-
-        for (const file of files) {
-          set.delete(file)
-        }
-        resolve()
-      })
-    });
-  }));
-
-  (tsconfig.files || []).forEach(include => {
-    if (considerFile(include)) {
-      set.add(path.join(srcRoot, include))
-    }
-  });
-
-  return set
+  return new Set<string>(configFileContent.fileNames)
 }

@@ -2,8 +2,9 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { listStrictNullCheckEligibleFiles, getCheckedFiles } from './getStrictNullCheckEligibleFiles'
 import { ErrorCounter } from './errorCounter'
+import { normalizeTsconfigPath } from './tsHelper';
 
-const tsconfigPath = process.argv[2]
+const tsconfigPath = normalizeTsconfigPath(process.argv[2])
 const srcRoot = path.dirname(tsconfigPath)
 
 tryAutoAddStrictNulls()

@@ -1,8 +1,9 @@
 import * as path from 'path'
 import { forEachFileInSrc } from './getStrictNullCheckEligibleFiles'
 import { findCycles } from './findCycles'
+import { normalizeTsconfigPath } from './tsHelper';
 
-const tsconfigPath = process.argv[2]
+const tsconfigPath = normalizeTsconfigPath(process.argv[2])
 const srcRoot = path.dirname(tsconfigPath)
 
 runFindCycles()
