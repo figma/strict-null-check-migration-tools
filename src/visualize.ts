@@ -1,11 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { listStrictNullCheckEligibleFiles, getCheckedFiles, forEachFileInSrc, listStrictNullCheckEligibleCycles } from './getStrictNullCheckEligibleFiles'
-import { ImportTracker } from './tsHelper'
+import { ImportTracker, normalizeTsconfigPath } from './tsHelper';
 import { findCycles } from './findCycles'
 import { ErrorCounter } from './errorCounter'
 
-const tsconfigPath = process.argv[2]
+const tsconfigPath = normalizeTsconfigPath(process.argv[2])
 const srcRoot = path.dirname(tsconfigPath)
 const countErrors = process.argv.indexOf('--countErrors') >= 0
 

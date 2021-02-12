@@ -1,8 +1,8 @@
 import * as path from 'path'
 import { listStrictNullCheckEligibleFiles, forEachFileInSrc, getCheckedFiles, listStrictNullCheckEligibleCycles } from './getStrictNullCheckEligibleFiles'
-import { getImportsForFile } from './tsHelper'
+import { getImportsForFile, normalizeTsconfigPath } from './tsHelper';
 
-const tsconfigPath = process.argv[2]
+const tsconfigPath = normalizeTsconfigPath(process.argv[2])
 console.log(tsconfigPath)
 const srcRoot = path.dirname(tsconfigPath)
 

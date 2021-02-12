@@ -2,6 +2,10 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as ts from 'typescript'
 
+export function normalizeTsconfigPath(tsconfigPath: string) {
+  return path.resolve(tsconfigPath);
+}
+
 /**
  * Given a file, return the list of files it imports as absolute paths.
  */
