@@ -31,8 +31,8 @@ export function getImportsForFile(file: string, srcRoot: string) {
   const fileInfo = ts.preProcessFile(fs.readFileSync(file).toString());
   return fileInfo.importedFiles
     .map(importedFile => importedFile.fileName)
-    // remove svg, css imports
-    .filter(fileName => !fileName.endsWith(".css") && !fileName.endsWith(".svg") && !fileName.endsWith(".json"))
+    // remove svg, css, less imports
+    .filter(fileName => !fileName.endsWith(".less") && !fileName.endsWith(".css") && !fileName.endsWith(".svg") && !fileName.endsWith(".json"))
     .filter(fileName => !fileName.endsWith(".js") && !fileName.endsWith(".jsx")) // Assume .js/.jsx imports have a .d.ts available
     .filter(x => /\//.test(x)) // remove node modules (the import must contain '/')
     .map(fileName => {
