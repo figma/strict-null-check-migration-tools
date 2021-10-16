@@ -48,8 +48,14 @@ export function getImportsForFile(file: string, srcRoot: string) {
       if (/^src/.test(fileName)) {
         return path.join(srcRoot, fileName);
       }
-      return path.join(srcRoot, fileName);
+      // If it isn't a relative import and doesn't start with a TS Config path,
+      // it *should* be a node_module, so let's just skip it instead of warning about
+      // an unresolved import (we don't care about checking node_modules).
+      return null
     }).map(fileName => {
+      if (!fileName) {
+        return null
+      }
       if (fs.existsSync(`${fileName}.ts`)) {
         return `${fileName}.ts`
       }
