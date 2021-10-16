@@ -21,7 +21,9 @@ function hasUncheckedImport(file: string, importsTracker: ImportTracker, checked
 
 export function forEachFileInSrc(srcRoot: string): Promise<string[]> {
   return new Promise((resolve, reject) => {
-    glob(`${srcRoot}/**/*.ts?(x)`, (err, files) => {
+    // Only look in the src/ directory - we don't want to check node_modules, etc.
+    // We may need to slightly tweak this if running in other repos.
+    glob(`${srcRoot}/src/**/*.ts?(x)`, (err, files) => {
       if (err) {
         return reject(err)
       }
@@ -108,7 +110,7 @@ export async function getCheckedFiles(tsconfigPath: string, srcRoot: string): Pr
   const set = new Set<string>();
 
   await Promise.all(tsconfig.include.map(file => {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       glob(path.join(srcRoot, file), (err, files) => {
         if (err) {
           return reject(err)
@@ -125,7 +127,7 @@ export async function getCheckedFiles(tsconfigPath: string, srcRoot: string): Pr
   }));
 
   await Promise.all(tsconfig.exclude.map(file => {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       glob(path.join(srcRoot, file), (err, files) => {
         if (err) {
           return reject(err)
