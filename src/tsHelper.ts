@@ -39,6 +39,15 @@ export function getImportsForFile(file: string, srcRoot: string) {
       if (/(^\.\/)|(^\.\.\/)/.test(fileName)) {
         return path.join(path.dirname(file), fileName)
       }
+      // In some repos, we configure TS paths (https://www.typescriptlang.org/tsconfig#paths).
+      // We could make this script properly understand those... but it's easier to just hardcode this
+      // specific path for now. 
+      // We essentially just turn an import of `src/...` into an import relative to the src root, 
+      // which works because that's exactly how we've configured our path mapping.
+      // If we use this script on other repos, we may need to update this section.
+      if (/^src/.test(fileName)) {
+        return path.join(srcRoot, fileName);
+      }
       return path.join(srcRoot, fileName);
     }).map(fileName => {
       if (fs.existsSync(`${fileName}.ts`)) {
