@@ -3,6 +3,8 @@ import { spawn, ChildProcessWithoutNullStreams, execSync } from 'child_process'
 
 const buildCompletePattern = /Found (\d+) errors?\. Watching for file changes\./gi
 
+const MODE: "removeFromExclude" | "addToInclude" = "addToInclude";
+
 export class ErrorCounter {
   private tscProcess: ChildProcessWithoutNullStreams
   private tsconfigCopyPath: string
@@ -42,13 +44,25 @@ export class ErrorCounter {
 
       this.tscProcess.stdout.on('data', listener)
 
-      // Create a new config with the file removed from excludes
-      const exclude = new Set(this.originalConfig.exclude)
-      exclude.delete('./' + relativeFilePath)
-      fs.writeFileSync(this.tsconfigCopyPath, JSON.stringify({
-        ...this.originalConfig,
-        exclude: [...exclude],
-      }, null, 2))
+      switch (MODE) {
+        case "addToInclude":
+          // Create a new config with the file added to files
+          const files = new Set(this.originalConfig.files)
+          files.add('./' + relativeFilePath)
+          fs.writeFileSync(this.tsconfigCopyPath, JSON.stringify({
+            ...this.originalConfig,
+            files: [...files],
+          }, null, 2))
+          break;
+        case "removeFromExclude":
+          // Create a new config with the file removed from excludes
+          const exclude = new Set(this.originalConfig.exclude)
+          exclude.delete('./' + relativeFilePath)
+          fs.writeFileSync(this.tsconfigCopyPath, JSON.stringify({
+            ...this.originalConfig,
+            exclude: [...exclude],
+          }, null, 2))
+      }
     })
   }
 }
