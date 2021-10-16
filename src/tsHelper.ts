@@ -11,10 +11,18 @@ export function getImportsForFile(file: string, srcRoot: string) {
 
   if (fs.lstatSync(file).isDirectory()) {
     const index = path.join(file, "index.ts")
+    const indexTsx = path.join(file, "index.tsx")
+    const indexJs = path.join(file, "index.js")
     if (fs.existsSync(index)) {
       // https://basarat.gitbooks.io/typescript/docs/tips/barrel.html
       console.warn(`Warning: Barrel import: ${path.relative(srcRoot, file)}`)
       file = index
+    } else if (fs.existsSync(indexTsx)) {
+      console.warn(`Warning: Barrel import: ${path.relative(srcRoot, file)}`)
+      file = indexTsx
+    } else if (fs.existsSync(indexJs)) {
+      // Don't bother analyzing imports of js files.
+      return [];
     } else {
       throw new Error(`Warning: Importing a directory without an index.ts file: ${path.relative(srcRoot, file)}`)
     }
